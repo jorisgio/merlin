@@ -2,6 +2,31 @@
  * This encodes LSP RPC state machine.
  *)
 
+module Response : sig
+
+  type error = {
+    code : int;
+    message : string;
+  }
+
+end
+
+module Server_response : sig
+  open Protocol
+
+  type t =
+    | WorkspaceApplyEdit of ApplyEdit.result
+
+end
+
+module Server_request : sig
+  open Protocol
+
+  type t =
+    | WorkspaceApplyEdit of ApplyEdit.params
+
+end
+
 module Server_notification : sig
   open Protocol
 
@@ -29,6 +54,7 @@ module Request : sig
     | TextDocumentDefinition : Definition.params -> Definition.result t
     | TextDocumentTypeDefinition : TypeDefinition.params -> TypeDefinition.result t
     | TextDocumentCompletion : Completion.params -> Completion.result t
+    | TextDocumentCodeAction : CodeAction.params -> CodeAction.result t
     | TextDocumentCodeLens : CodeLens.params -> CodeLens.result t
     | TextDocumentRename : Rename.params -> Rename.result t
     | DocumentSymbol : TextDocumentDocumentSymbol.params -> TextDocumentDocumentSymbol.result t
@@ -36,6 +62,7 @@ module Request : sig
     | DebugTextDocumentGet : DebugTextDocumentGet.params -> DebugTextDocumentGet.result t
     | TextDocumentReferences : References.params -> References.result t
     | TextDocumentHighlight : TextDocumentHighlight.params -> TextDocumentHighlight.result t
+    | WorkspaceExecuteCommand : Rpc_ext.Command.t -> ExecuteCommand.result t
     | UnknownRequest : string * Yojson.Safe.t -> unit t
 end
 
@@ -60,6 +87,13 @@ type 'state handler = {
     t
     -> 'state
     -> Client_notification.t
+    -> ('state, string) result;
+
+  on_response :
+    t
+    -> 'state
+    -> int
+    -> (Server_response.t, Response.error) result
     -> ('state, string) result
 }
 

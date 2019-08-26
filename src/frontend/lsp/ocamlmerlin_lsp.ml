@@ -23,7 +23,7 @@ let initializeInfo: Lsp.Protocol.Initialize.result = {
     documentHighlightProvider = true;
     documentSymbolProvider = true;
     workspaceSymbolProvider = false;
-    codeActionProvider = false;
+    codeActionProvider = true;
     codeLensProvider = Some {
       codelens_resolveProvider = false;
     };
@@ -555,6 +555,21 @@ let on_request :
       Lsp.Protocol.WorkspaceEdit.make ~documentChanges ~uri ~version ~edits
     in
     return (store, workspace_edits)
+  | Lsp.Rpc.Request.TextDocumentCodeAction {textDocument = {uri = _;}; range = _; context = _} ->
+    (* TODO : filter list of available commands based on AST locations *)
+      assert false
+  | Lsp.Rpc.Request.WorkspaceExecuteCommand (Lsp.Rpc_ext.Command.MerlinDestruct { textDocument = {uri;}; range; }) ->
+    Document_store.get store uri >>= fun doc ->
+    let start_ = logical_of_position range.start_ in
+    let end_ = logical_of_position range.end_ in
+    let command = Query_protocol.Case_analysis (start_, end_) in
+    begin match dispatch_in_doc doc command with
+    | (loc, newText) ->
+      let range = range_of_loc loc in
+      let edit = {Lsp.Protocol.TextEdit. newText; range;} in
+      return (store, ())
+    end
+    | Lsp.Rpc.Request.WorkspaceExecuteCommand (Lsp.Rpc_ext.Command.UnknownCommand _) -> errorf "got unknown command"
   | Lsp.Rpc.Request.UnknownRequest _ -> errorf "got unknown request"
 
 let on_notification rpc store (notification : Lsp.Rpc.Client_notification.t) =
